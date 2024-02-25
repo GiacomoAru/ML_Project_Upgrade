@@ -1,2 +1,5 @@
-# NN_Project_Upgrade
-Is the continuation of a bad old project
+# ML_Proj_NN
+Repository for Machine Learning course project - AIdra team
+
+
+
