@@ -1,5 +1,4 @@
 from ast import Raise
-from matplotlib.pylab import f
 from pathlib import Path
 import random
 import numpy as np
@@ -13,8 +12,8 @@ import ast
 import pandas
 import time
 
-from NeuralNetwork import NeuralNetwork
-import ErrorFunctions
+from old.NeuralNetwork import NeuralNetwork
+import ErrorFunctions as ErrorFunctions
 
 class ModelSelection:
     '''

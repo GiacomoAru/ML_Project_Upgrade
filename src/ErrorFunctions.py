@@ -52,7 +52,7 @@ def mean_squared_error(outputs:np.ndarray, targets:np.ndarray):
 
     return error
 
-def accuracy(outputs:np.ndarray, targets:np.ndarray):
+def accuracy(targets: np.ndarray, outputs: np.ndarray, threshold: float = 0.5) -> float:
     '''
     Calculates the accuracy for a given learning set of patterns, computed as:
         Accuracy = (TP + TN) / (TP + TN + FP + FN)
@@ -69,12 +69,17 @@ def accuracy(outputs:np.ndarray, targets:np.ndarray):
     return: float
         the accuracy value
     '''
-    N = targets.shape[0]
-    if outputs.shape[1] > 1:
-        raise Exception('only 1-dimension array are allowed')
-    outputs = outputs.flatten()
-    targets = targets.flatten()
-    predictions = np.array([1 if x > 0.5 else 0 for x in outputs])
+    # Check if the arrays have the same length
+    if len(targets) != len(outputs):
+        raise ValueError("Arrays must have the same length.")
     
-    ret = sum((targets) == predictions) / N
-    return ret 
+    # Convert probabilities to binary labels using the threshold
+    outputs = (outputs >= threshold).astype(int)
+    
+    # Compute the number of correctly predicted labels
+    correct_predictions = np.sum(targets == outputs)
+    
+    # Compute the accuracy
+    accuracy = correct_predictions / len(targets)
+    
+    return accuracy

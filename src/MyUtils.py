@@ -10,8 +10,8 @@ import plotly.express as px
 import pathlib
 
 sys.path.append(os.path.abspath('./'))
-from ActivationFunctions import *
-from NeuralNetwork import *
+from old.ActivationFunctions_2 import *
+from old.NeuralNetwork import *
 
 '''
 The collections of useful function used in then project and useful global variables
@@ -96,7 +96,7 @@ def train_from_index(df:pd.DataFrame, tr_set:np.ndarray, val_set:np.ndarray, ind
             'error_increase_tolerance' : math.inf,
             'retrainig_es_error': -1,
 
-            'metrics':[ErrorFunctions.mean_squared_error, ErrorFunctions.mean_euclidean_error],      
+            'metrics':[old.ErrorFunctions_2.mean_squared_error, old.ErrorFunctions_2.mean_euclidean_error],      
             'topology': {}, # must be inizialized
 
             'collect_data':True, 
