@@ -20,7 +20,10 @@ class ActivationFunction(ABC):
     def derivate(self, x):
         """Abstract method for computing the derivative of the activation function."""
         pass
-
+    
+    def __str__(self):
+        return type(self).__name__
+    
 class SigmoidFunction(ActivationFunction):
     """Sigmoid activation function.
 
