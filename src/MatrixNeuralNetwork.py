@@ -58,8 +58,8 @@ class MatrixNeuralNetwork(MLModel):
             activation_fun = copy.deepcopy(elem[1])
             
             # + 1 for the bias weight in every neuron
-            weight = getattr(random_generator, distribution_str)(**distribution_args, size = (prec_input + 1)*unit_number)
-            layer = np.array([weight[i:i + unit_number] for i in range(0, len(weight), unit_number)])
+            weight = np.array(getattr(random_generator, distribution_str)(**distribution_args, size = (prec_input + 1)*unit_number))
+            layer = np.reshape(weight, (prec_input + 1, unit_number))
             prec_input = unit_number
             
             self.layers.append([layer, activation_fun])
@@ -135,52 +135,58 @@ class MatrixNeuralNetwork(MLModel):
     
     def predict(self, patterns: np.ndarray) -> np.ndarray:
         
-        pattern_with_bias = np.ones((patterns.shape[0],patterns.shape[1]+1))
-        pattern_with_bias[:,:-1] = patterns
-        
         tmp_values = patterns
         for weights, act_fun in self.layers:
+            # adding bias ones
+            tmp_values_bias = np.ones((tmp_values.shape[0],tmp_values.shape[1]+1))
+            tmp_values_bias[:,:-1] = tmp_values
             # weight
-            tmp_values = np.matmul(tmp_values, weights)
+            tmp_values = np.matmul(tmp_values_bias, weights)
             # activation fun
             tmp_values = act_fun.compute(tmp_values)
         
         return tmp_values
 
-    def __predict_for_training(self, patterns: np.ndarray):
-        
-        pattern_with_bias = np.ones((patterns.shape[0],patterns.shape[1]+1))
-        pattern_with_bias[:,:-1] = patterns
+    def predict_for_training(self, patterns: np.ndarray) -> np.ndarray:
         
         self.layers_output = []
         self.layers_net = []
         
         tmp_values = patterns
         for weights, act_fun in self.layers:
-            # weight
-            tmp_values = np.matmul(tmp_values, weights)
-            self.layers_net.append(tmp_values) # net
+            # adding bias ones
+            tmp_values_bias = np.ones((tmp_values.shape[0],tmp_values.shape[1]+1))
+            tmp_values_bias[:,:-1] = tmp_values
             
+            # weight
+            tmp_values = np.matmul(tmp_values_bias, weights)
+            self.layers_net.append(tmp_values) # net
             # activation fun
             tmp_values = act_fun.compute(tmp_values)
             self.layers_output.append(tmp_values) # o
+        return tmp_values
+           
+    def backpropagate(self, target: np.ndarray):
         
-    
-    def __backpropagate(self, targhet: np.ndarray):
-        
-        layers_delta_error = []
+        self.layers_delta_error = []
         
         # output layer
         a = self.layers[-1][1].derivate(self.layers_net[-1])
-        b = (targhet - self.layers_output[-1])
-        layers_delta_error.append(np.multiply(a,b))
+        b = (target - self.layers_output[-1])
+        self.layers_delta_error.append(np.multiply(a,b))
         
         for i in range(1, len(self.layers)):
             a = self.layers[-(i+1)][1].derivate(self.layers_net[-(i+1)])
             
-            b = np.multiply(layers_delta_error[-1])
+            b = np.empty(a.shape)
+            for row_index in range(a.shape[0]):
+                c = np.broadcast_to(self.layers_delta_error[-1][row_index],((self.layers[-i][0].shape[0] - 1, self.layers[-i][0].shape[1])))
+                
+                c = np.multiply(c, self.layers[-i][0][:-1,:])
+                b[row_index] = np.sum(c, axis=1)
+            self.layers_delta_error.append(b)
             
-            
+        self.layers_delta_error = reversed(self.layers_delta_error)
         return
     
     def __weights_update(self):
