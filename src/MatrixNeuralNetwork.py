@@ -147,7 +147,7 @@ class MatrixNeuralNetwork(MLModel):
         
         return tmp_values
 
-    def predict_for_training(self, patterns: np.ndarray) -> np.ndarray:
+    def __predict_for_training(self, patterns: np.ndarray) -> np.ndarray:
         
         self.layers_output = []
         self.layers_net = []
@@ -166,7 +166,7 @@ class MatrixNeuralNetwork(MLModel):
             self.layers_output.append(tmp_values) # o
         return tmp_values
            
-    def backpropagate(self, target: np.ndarray):
+    def __backpropagate(self, target: np.ndarray):
         
         self.layers_delta_error = []
         
@@ -186,14 +186,24 @@ class MatrixNeuralNetwork(MLModel):
                 b[row_index] = np.sum(c, axis=1)
             self.layers_delta_error.append(b)
             
-        self.layers_delta_error = reversed(self.layers_delta_error)
+        self.layers_delta_error = list(reversed(self.layers_delta_error))
         return
     
     def __weights_update(self):
         
-        return
+        for i, layer in enumerate(self.layers):
+            delta_w = 0
+            for j in range(self.layers_output[i].shape[0]):
+                delta_w += np.dot(np.transpose(self.layers_delta_error[i][j]), self.layers_output[i][j])
+            layer[0] = layer[0] + delta_w*self.true_learning_rate
     
     def train(self, training_set: np.ndarray, validation_set: np.ndarray = None, additional_data_set: np.ndarray=None, metrics_list: list = [], verbose: bool = True) -> dict:
+        
+        # initializing every variables with the correct value
+        self.epochs = 0
+        last_error_increase_percentage = -1
+        last_val_error = np.inf
+        training_set_length = len(training_set)
         
         # simple check to adjust bad input values
         if self.batch_size > training_set_length: self.batch_size = training_set_length
@@ -202,14 +212,6 @@ class MatrixNeuralNetwork(MLModel):
         else:
             exhausting_patience = self.patience
             
-        # initializing every variables with the correct value
-        self.epochs = 0
-        last_error_increase_percentage = -1
-        training_set_length = len(training_set)
-        last_val_error = np.inf
-        
-        
-        
         # variables used in retrain to stop at the right training error
         NOT_retraining_stop = True
         retraining_error_target = self.retraining_error_target + self.retraining_error_target*self.retraining_error_tol
@@ -292,8 +294,8 @@ class MatrixNeuralNetwork(MLModel):
                 batch = training_set[batch_index: batch_index + self.batch_size]
             batch_index += self.batch_size
             
-            self.__predict_for_training(batch[:self.input_size])
-            self.__backpropagate(batch[self.input_size:])
+            self.__predict_for_training(batch[:,:self.input_size])
+            self.__backpropagate(batch[:,self.input_size:])
             self.__weights_update()
             
             # stats for every batch
@@ -357,8 +359,10 @@ class MatrixNeuralNetwork(MLModel):
                     if verbose: metrics_to_print = ''
                     
                     pred_tr = self.predict(training_set[:,:self.input_size])
-                    pred_val = self.predict(validation_set[:,:self.input_size])
-                    pred_add = self.predict(additional_data_set[:,:self.input_size])
+                    if not(validation_set is None):
+                        pred_val = self.predict(validation_set[:,:self.input_size])
+                    if not(additional_data_set is None):
+                        pred_add = self.predict(additional_data_set[:,:self.input_size])
                     
                     if self.collect_prediction_data:
                         stats['tr_pred'].append(pred_tr)
@@ -393,6 +397,10 @@ class MatrixNeuralNetwork(MLModel):
         stats['epochs'] = self.epochs
         if self.collect_data:
             stats['mean_epoch_train_time'] = stats['total_train_time']/stats['epochs']
+            
+        self.layers_delta_error = []
+        self.layers_net = []
+        self.layers_output = []
         return stats
 
     
