@@ -62,7 +62,12 @@ class SigmoidFunction(ActivationFunction):
         if isinstance(x, float):
             return 1/(1 + math.exp(-(x * self.slope)))
         else:
-            return self.vectorized_fun(x)
+            try:
+                a = self.vectorized_fun(x)
+            except Exception as e:
+                print(x)
+                raise e
+            return a
 
     def derivate(self, x: float | np.ndarray):
         """Compute the derivative of the sigmoid activation function for a given input or array of inputs.

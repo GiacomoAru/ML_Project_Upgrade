@@ -31,7 +31,9 @@ class MatrixNeuralNetwork(MLModel):
             'exp_decay_rate_2': 0.999,
             
             'collect_data': True, 
-            'collect_batch_data': False}
+            'collect_prediction_data': False,
+            'collect_weights_data':False, 
+            'collect_batch_data':False}
 
     def __init__(self, structure:list[int], n_input:int, seed:int = None):
         '''
@@ -64,7 +66,7 @@ class MatrixNeuralNetwork(MLModel):
             
             self.layers.append([layer, activation_fun])
 
-        # set default hyperparameters for training
+        # set defau lt hyperparameters for training
         self.set_hyperparameters()
         return
     
@@ -128,10 +130,6 @@ class MatrixNeuralNetwork(MLModel):
         self.collect_prediction_data = collect_prediction_data
         self.collect_weights_data = collect_weights_data
         self.collect_batch_data = collect_batch_data
-        
-        if self.learning_rate_adjust:
-            self.true_learning_rate = self.learning_rate/self.batch_size
-        self.eta_tau = self.learning_rate*self.lr_decay_multiplier
     
     def predict(self, patterns: np.ndarray) -> np.ndarray:
         
@@ -149,21 +147,23 @@ class MatrixNeuralNetwork(MLModel):
 
     def __predict_for_training(self, patterns: np.ndarray) -> np.ndarray:
         
-        self.layers_output = []
+        self.layers_input = []
         self.layers_net = []
         
         tmp_values = patterns
         for weights, act_fun in self.layers:
             # adding bias ones
-            tmp_values_bias = np.ones((tmp_values.shape[0],tmp_values.shape[1]+1))
+            tmp_values_bias = np.ones((tmp_values.shape[0],tmp_values.shape[1] + 1))
             tmp_values_bias[:,:-1] = tmp_values
             
             # weight
+            self.layers_input.append(tmp_values_bias) # o
             tmp_values = np.matmul(tmp_values_bias, weights)
             self.layers_net.append(tmp_values) # net
             # activation fun
             tmp_values = act_fun.compute(tmp_values)
-            self.layers_output.append(tmp_values) # o
+        
+        self.output = tmp_values
         return tmp_values
            
     def __backpropagate(self, target: np.ndarray):
@@ -172,7 +172,7 @@ class MatrixNeuralNetwork(MLModel):
         
         # output layer
         a = self.layers[-1][1].derivate(self.layers_net[-1])
-        b = (target - self.layers_output[-1])
+        b = (target - self.output)
         self.layers_delta_error.append(np.multiply(a,b))
         
         for i in range(1, len(self.layers)):
@@ -184,18 +184,18 @@ class MatrixNeuralNetwork(MLModel):
                 
                 c = np.multiply(c, self.layers[-i][0][:-1,:])
                 b[row_index] = np.sum(c, axis=1)
-            self.layers_delta_error.append(b)
-            
-        self.layers_delta_error = list(reversed(self.layers_delta_error))
+            self.layers_delta_error.append(np.multiply(a,b))
+        
         return
     
     def __weights_update(self):
         
         for i, layer in enumerate(self.layers):
             delta_w = 0
-            for j in range(self.layers_output[i].shape[0]):
-                delta_w += np.dot(np.transpose(self.layers_delta_error[i][j]), self.layers_output[i][j])
-            layer[0] = layer[0] + delta_w*self.true_learning_rate
+            for j in range(self.layers_input[i].shape[0]):
+                delta_w += np.outer(self.layers_input[i][j], self.layers_delta_error[-(i+1)][j])
+                
+            layer[0] = layer[0] + delta_w * self.true_learning_rate - self.lambda_tikhonov*layer[0]
     
     def train(self, training_set: np.ndarray, validation_set: np.ndarray = None, additional_data_set: np.ndarray=None, metrics_list: list = [], verbose: bool = True) -> dict:
         
@@ -206,12 +206,18 @@ class MatrixNeuralNetwork(MLModel):
         training_set_length = len(training_set)
         
         # simple check to adjust bad input values
-        if self.batch_size > training_set_length: self.batch_size = training_set_length
+        if self.batch_size > training_set_length or self.batch_size < 0: self.batch_size = training_set_length
         if self.patience <= 0:
             exhausting_patience = 1
         else:
             exhausting_patience = self.patience
             
+        if self.learning_rate_adjust:
+            self.true_learning_rate = self.learning_rate/self.batch_size
+        else:
+            self.true_learning_rate = self.learning_rate
+        self.eta_tau = self.learning_rate*self.lr_decay_multiplier
+        
         # variables used in retrain to stop at the right training error
         NOT_retraining_stop = True
         retraining_error_target = self.retraining_error_target + self.retraining_error_target*self.retraining_error_tol
